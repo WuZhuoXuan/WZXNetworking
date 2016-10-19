@@ -5,7 +5,7 @@
 
 ## 使用方法
 
-、、、 obj
+```objc
 
 /**
  *  GET请求接口，若不指定baseurl，可传完整的url
@@ -43,3 +43,6 @@
  *  @param compressionQuality 压缩比例
  */
 + (void)updataVideoWithUrl:(NSString *)url withParams:(NSDictionary *)params withImage:(NSArray *)arrImage withCompressionQuality:(CGFloat)compressionQuality success:(WZXResponseSuccess)success fail:(WZXResponseError)fail;
+
+
+```
