@@ -13,6 +13,9 @@
 
 #import <CommonCrypto/CommonDigest.h>
 
+
+
+
 @interface NSString (MD5)
 
 + (NSString *)WZXNetWorking_MD5:(NSString *)string;
@@ -53,7 +56,12 @@ static BOOL zx_cachePost = NO;
 static BOOL zx_shouldCallbackOnCancelRequest = YES;
 static NSTimeInterval zx_timeout = 60.0f;
 static BOOL zx_shoulObtainLocalWhenUnconnected = NO;
+static BOOL zx_openHttpsSSL = NO;
 
+/**
+ *  SSL 证书名称，仅支持cer格式。“app.bishe.com.cer”,则填“app.bishe.com”
+ */
+static NSString *certificate = @"adn";
 
 @implementation WZXNetworking
 
@@ -83,6 +91,15 @@ static BOOL zx_shoulObtainLocalWhenUnconnected = NO;
     zx_timeout = timeout;
 }
 
+/**
+ *  是否开启https SSL 验证
+ *
+ *  @isOpen YES为开启，NO为关闭 ,默认是NO
+ */
++ (void)setOpenHttpsSSL:(BOOL)isOpen{
+    
+    zx_openHttpsSSL = isOpen;
+}
 /**
  *  开启或关闭接口打印信息
  *
@@ -770,6 +787,8 @@ static inline NSString *cachePath(){
                                                                               @"image/*"]];
     manager.requestSerializer.timeoutInterval = zx_timeout;
     
+    
+    
     // 设置允许同时最大并发数量，过大容易出问题
     manager.operationQueue.maxConcurrentOperationCount = 3;
     
@@ -777,8 +796,53 @@ static inline NSString *cachePath(){
     {
         [self detectNetwork];
     }
+    
+    NSLog(@"%d",zx_openHttpsSSL);
+   if (zx_openHttpsSSL) {
+        [manager setSecurityPolicy:[self customSecurityPolicy]];
+    }
+    
     return manager;
 }
+
+
++ (AFSecurityPolicy *)customSecurityPolicy{
+    
+    // 有证书就先导入证书，没有证书就不导入
+    NSString *cerPath = [[NSBundle mainBundle] pathForResource:certificate ofType:@"cer"];
+    
+    NSData *certData = [NSData dataWithContentsOfFile:cerPath];
+    
+    
+    
+    //AFSSLPinningModeNone: 代表客户端无条件地信任服务器端返回的证书。
+    //AFSSLPinningModePublicKey: 代表客户端会将服务器端返回的证书与本地保存的证书中，PublicKey的部分进行校验；如果正确，才继续进行。
+    //AFSSLPinningModeCertificate: 使用证书验证模式,代表客户端会将服务器端返回的证书和本地保存的证书中的所有内容，包括PublicKey和证书部分，全部进行校验；如果正确，才继续进行。
+
+    
+    // 这边要调节一下 
+
+    AFSecurityPolicy *securityPolicy = [AFSecurityPolicy policyWithPinningMode:AFSSLPinningModeNone];
+    
+    // allowInvalidCertificates 是否允许无效证书（也就是自建的证书），默认为NO
+    // 如果是需要验证自建证书，需要设置为YES
+    securityPolicy.allowInvalidCertificates = YES;
+    
+    //validatesDomainName 是否需要验证域名，默认为YES；
+    //假如证书的域名与你请求的域名不一致，需把该项设置为NO；如设成NO的话，即服务器使用其他可信任机构颁发的证书，也可以建立连接，这个非常危险，建议打开。
+    //置为NO，主要用于这种情况：客户端请求的是子域名，而证书上的是另外一个域名。因为SSL证书上的域名是独立的，假如证书上注册的域名是www.google.com，那么mail.google.com是无法验证通过的；当然，有钱可以注册通配符的域名*.google.com，但这个还是比较贵的。
+    //如置为NO，建议自己添加对应域名的校验逻辑。
+    //对应域名的校验我认为应该在url中去逻辑判断。
+    securityPolicy.validatesDomainName = NO;
+    if (certData){
+        securityPolicy.pinnedCertificates = @[certData];
+    }
+    
+    return securityPolicy;
+
+}
+
+
 + (void)detectNetwork
 {
     AFNetworkReachabilityManager *reachabilityManager = [AFNetworkReachabilityManager sharedManager];
@@ -1081,6 +1145,60 @@ static inline NSString *cachePath(){
 
 
 
+//#pragma mark - request port
+//- (NSURLSessionUploadTask*)uploadTaskWithImage:(UIImage*)image completion:(void (^)(NSURLResponse *response, id responseObject, NSError *error))completionBlock {
+//    // 构造 NSURLRequest
+//    NSDictionary *parameters=@{@"uploadCode":@"10006"};
+//    NSError *error = NULL;
+//    NSMutableURLRequest *request = [[AFHTTPRequestSerializer serializer] multipartFormRequestWithMethod:@"POST" URLString:HttpUrl parameters:parameters constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {
+//        //传递照片流
+//      NSString *fileName= [CommonMethod currentTime];
+//        NSData *data=UIImagePNGRepresentation(image);
+//        NSString *fileNames = [NSString stringWithFormat:@"%@.png",fileName];
+//        [formData appendPartWithFileData:data name:@"file" fileName:fileNames mimeType:@"image/png"];
+//    } error:&error];
+//    
+//    NSURLSessionUploadTask *uploadTask = [[AFNetWorkMethod GetImageManager] uploadTaskWithStreamedRequest:request progress:^(NSProgress * _Nonnull uploadProgress) {
+//    } completionHandler:completionBlock];
+//    
+//    return uploadTask;
+//}
+//- (void)runDispatchTest:(id)sender {
+//    // 准备保存结果的数组，元素个数与上传的图片个数相同，先用NSNull占位
+//    for (int i=0; i<3; i++) {
+//        [fileNameArr addObject:[NSNull null]];
+//        [imageURLArr addObject:[NSNull null]];
+//    }
+//    
+//    dispatch_group_t group = dispatch_group_create();
+//    
+//    for (NSInteger i = 0; i < imageArr.count; i++) {
+//        
+//        dispatch_group_enter(group);
+//        
+//        NSURLSessionUploadTask* uploadTask = [self uploadTaskWithImage:imageArr[i] completion:^(NSURLResponse *response, NSDictionary* responseObject, NSError *error) {
+//            if (error) {
+//                //图片上传失败
+//                [CommonMethod alertView:[NSString stringWithFormat:@"%@",responseObject[@"msg"]] andButton:sender];
+//                dispatch_group_leave(group);
+//            } else {
+//                //图片上传成功存储图片名和图片地址
+//                @synchronized (fileNameArr) {
+//                    // NSMutableArray 是线程不安全的，所以加个同步锁
+//                    fileNameArr[i]=responseObject[@"data"][@"fileName"];
+//                }
+//                @synchronized (imageURLArr) {
+//                    // NSMutableArray 是线程不安全的，所以加个同步锁
+//                    imageURLArr[i]=responseObject[@"data"][@"url"];
+//                }
+//                dispatch_group_leave(group);
+//            }
+//        }];
+//        [uploadTask resume];
+//    }
+//    
+//   
+//}
 
 
 @end

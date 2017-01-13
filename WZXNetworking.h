@@ -68,6 +68,13 @@ typedef void(^WZXResponseError)(NSError *error);
 + (void)setTimeout:(NSTimeInterval)timeout;
 
 /**
+ *  是否开启https SSL 验证
+ *
+ *  @isOpen YES为开启，NO为关闭 ,默认是NO
+ */
++ (void)setOpenHttpsSSL:(BOOL)isOpen;
+
+/**
  *  开启或关闭接口打印信息
  *
  *  @param isDebug 开发期，最好打开 ,默认是NO
